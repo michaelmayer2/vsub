@@ -28,12 +28,13 @@ For `list`, `kill`, contexts etc. use `sas-viya` directly.
 
 ## Install
 
-```bash
-uv venv && uv pip install -e .          # or: pip install -e .
-```
+**Full setup guide: [docs/SETUP.md](docs/SETUP.md)** (Git LFS, both logins, TLS, Windows, admin prerequisites).
 
-For the batch commands also install the [SAS Viya CLI](https://support.sas.com/downloads/package.htm?pid=2512)
-with the batch plug-in.
+```bash
+git lfs install && git lfs pull         # bundled SAS Viya CLI archives (vendor/sas-viya-cli)
+uv venv && uv pip install -e .          # or: pip install -e .
+scripts/setup-sas-viya.sh               # batch only: installs sas-viya + batch plug-in, profile, login
+```
 
 ## Configure & log in
 

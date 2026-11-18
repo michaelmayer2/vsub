@@ -16,7 +16,9 @@ uv venv && uv pip install -e '.[test]'   # dev install (.venv)
 .venv/bin/vsub --help
 ```
 
-No linter/formatter is configured. Nothing can be tested against a real Viya here, and the `sas-viya` CLI isn't installed locally. Tests use fakes.
+No linter/formatter is configured. Nothing can be tested against a real Viya here (no profile or login), so tests use fakes. The `sas-viya` CLI 1.39.14 and its batch plug-in are installed in `~/.local/bin` and `~/.sas/viya-plugins`, and `--help` output can be used to check flags.
+
+`vendor/sas-viya-cli/` holds the proprietary SAS Viya CLI archives for all three OSes, stored via **Git LFS** (`.gitattributes`). `scripts/setup-sas-viya.sh` installs the CLI from there (after SHA256SUMS verification), plus the batch plug-in, profile and `auth loginCode`. It must stay bash 3.2-compatible (macOS `/bin/bash`), e.g. use the `${arr[@]+"${arr[@]}"}` idiom under `set -u`. Setup docs are in `docs/SETUP.md`.
 
 ## Architecture
 

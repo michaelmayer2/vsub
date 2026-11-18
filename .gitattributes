@@ -1,0 +1,2 @@
+vendor/sas-viya-cli/*.zip filter=lfs diff=lfs merge=lfs -text
+vendor/sas-viya-cli/*.tgz filter=lfs diff=lfs merge=lfs -text
