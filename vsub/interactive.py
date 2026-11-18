@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import secrets
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -19,6 +20,8 @@ from .logs import LogSummary, scan_log
 from .transfer import DEFAULT_LIBREF, parse_ds_ref, resolve_remote_root, sas_quote, split_sas_file
 
 logging.getLogger("saspy").setLevel(logging.WARNING)
+# vsub scans and reports the log itself; saspy's generic warning is just noise.
+warnings.filterwarnings("ignore", message="Noticed 'ERROR:' in LOG", category=UserWarning)
 
 
 class SASError(Exception):

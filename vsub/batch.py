@@ -28,7 +28,7 @@ from typing import Callable, Iterable
 
 from .config import Config
 from .logs import LogSummary, scan_log
-from .transfer import SAS_FILE_EXTS, InvalidName, split_sas_file
+from .transfer import SAS_FILE_EXTS, InvalidName, sas_quote, split_sas_file
 
 _JOB_ID = re.compile(r'\bID[:=]\s*"([0-9a-fA-F-]{36})"')
 
@@ -50,16 +50,30 @@ def preamble(cfg: Config) -> str:
         'libname jobdir "%sysget(BATCHJOBDIR)";',
     ]
     if cfg.batch.home_mounted:
-        root = cfg.storage.remote_root
-        if root == "~":
-            path = "%sysget(HOME)"
-        elif root.startswith("~/"):
-            path = "%sysget(HOME)/" + root[2:]
-        else:
-            path = root
-        lines.append(f'libname vsub "{path}";')
+        lines.append(f"libname vsub {sas_quote(batch_remote_root(cfg))};")
     lines.append("/* --- end vsub preamble --- */")
     return "\n".join(lines) + "\n"
+
+
+def batch_remote_root(cfg: Config) -> str:
+    """remote_root for batch jobs - must be absolute.
+
+    Batch pods don't get the user's HOME (observed: HOME=/), so "~" can't be
+    resolved there even when home directories are mounted.
+    """
+    root = cfg.storage.remote_root
+    if root.startswith("~"):
+        raise BatchError(
+            "[batch] home_mounted = true needs an absolute [storage] remote_root - HOME is not "
+            "the user's home inside batch pods. Use the path `vsub check-home` prints, "
+            "e.g. remote_root = \"/home/<user>/vsub_data\"."
+        )
+    return root
+
+
+def uses_vsub_lib(code: str) -> bool:
+    """Heuristic: does the program reference the vsub library?"""
+    return re.search(r"\bvsub\s*\.\s*\w", code, re.IGNORECASE) is not None
 
 
 def stage_job_files(files: Iterable[Path], staging: Path) -> list[Path]:
@@ -146,8 +160,11 @@ def submit(
         pgm.write_text(preamble(cfg) + code)
         rc, out = runner(build_submit_cmd(cfg, pgm, staged, job_name or program.stem, wait, context))
     job_id = parse_job_id(out)
-    if rc != 0 or not job_id:
+    if not job_id:
         raise BatchError(f"sas-viya batch submit failed (rc={rc})")
+    # With --wait the CLI exits with the *job's* return code (1 = warnings,
+    # 2 = SAS errors). The job was submitted fine, so its results can and
+    # should still be fetched; the log scan decides vsub's exit code.
     return job_id
 
 

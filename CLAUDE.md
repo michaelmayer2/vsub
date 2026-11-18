@@ -32,7 +32,7 @@ Two backends share config (`config.py`), log scanning (`logs.py`) and naming rul
   - `submit(check=True)` raises `SASError` when the returned LOG contains ERROR lines. Setup steps use it. The user's program runs with `check=False` and gets summarized instead.
   - On exit, tokens refreshed by saspy's background thread (`sas._io.sascfg._token/_refresh`) are written back to the cache.
 - **Batch** (`batch.py`): deliberately thin wrapper over the official `sas-viya batch` CLI (subprocess). Only `submit` and `results` exist. Don't add passthroughs for list/kill/etc. (decided with the user).
-  - It adds: lower-casing staged SAS file names (SAS on Linux ignores upper-case member files), a preamble with `libname jobdir "%sysget(BATCHJOBDIR)"` (plus `vsub` if `home_mounted`), flattening `get-results` output out of `<dir>/JOB_*/`, and log → exit code.
+  - It adds: lower-casing staged SAS file names (SAS on Linux ignores upper-case member files), a preamble with `libname jobdir "%sysget(BATCHJOBDIR)"` (plus `vsub` with the absolute `remote_root` if `home_mounted`), flattening `get-results` output out of `<dir>/JOB_*/`, and log → exit code.
   - The job id is parsed from text output by regex. The program is written to a temp dir under its original name so the log is `<prog>.log`.
   - `SASBatch.*`/`redir.*` logs are batch-server debug logs and are excluded from scanning.
 - **Auth** (`auth.py`): mirrors saspy's own flow: PKCE S256, public client `SASPy` with empty secret, refresh via `Basic SASPy:`. Tokens are cached in `~/.config/vsub/tokens.json` (0600) and keyed by Viya URL. The batch backend uses the `sas-viya` CLI's own credentials (`sas-viya auth loginCode`).
@@ -42,6 +42,8 @@ Two backends share config (`config.py`), log scanning (`logs.py`) and naming rul
 
 - `get-results` downloads the file set and then **deletes** the job and file set on the server.
 - `submit-pgm` runs in SAS LOCKDOWN mode, so HOME may be unreachable from batch unless the admin allowlists it. `--job-file` is intended for small files.
+- Verified on the user's Viya: batch pods have `HOME=/`, even though `/home/<user>` is mounted and lockdown-allowed. So the batch `libname vsub` must use an absolute `remote_root` (`batch_remote_root()` rejects `~`).
+- `submit-pgm --wait` exits with the *job's* return code (2 = SAS errors). A non-zero rc with a parsed job ID is not a submit failure, and results must still be fetched.
 - HOME is persistent only if the admin mounted storage into the compute (and batch) pod templates. `vsub check-home` writes a marker, opens a second session, and checks whether the marker is still there.
 - A standalone `vsub download work.x` is meaningless: each command opens a fresh session. `run --down` can fetch any libref because it downloads before the session ends.
 

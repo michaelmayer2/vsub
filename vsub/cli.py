@@ -251,6 +251,11 @@ def batch_submit(
     `vsub batch results`.
     """
     cfg = _cfg()
+    if not cfg.batch.home_mounted and batch.uses_vsub_lib(program.read_text()):
+        err.print(
+            "[yellow]warning:[/] program references the vsub library, but it is not assigned in batch "
+            "([batch] home_mounted = false). Use jobdir. with --job-file, or see docs/SETUP.md."
+        )
     try:
         job_id = batch.submit(cfg, program, job_file, wait=wait, job_name=name, context=context)
         out.print(f"[green]job id:[/] {job_id}")

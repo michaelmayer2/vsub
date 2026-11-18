@@ -83,6 +83,26 @@ Point the CLI at the CA bundle with the `SSL_CERT_FILE` environment variable, e.
 
 If the machine can't reach the SAS plug-in repository, download the plug-in on another machine. Then install it with `sas-viya plugins install --file <path-to-plugin>`.
 
+### Using the `vsub` library in batch jobs
+
+By default, batch programs only get `jobdir` (the job directory). Inputs come in with `-f`, and outputs come back with `vsub batch results`. To use the persistent `vsub` library in batch as well:
+
+1. Check that batch pods can reach your home directory, using a small test job:
+   ```sas
+   libname vsub "/home/<user>/vsub_data";   /* the path `vsub check-home` printed */
+   ```
+   If the log shows `not in the list of accessible paths when SAS is in the lockdown state`, the admin has to allow the path first.
+2. In the vsub config, set an **absolute** `remote_root` and `home_mounted = true`:
+   ```toml
+   [storage]
+   remote_root = "/home/<user>/vsub_data"
+   [batch]
+   home_mounted = true
+   ```
+   Batch pods don't get your HOME (`%sysget(HOME)` is `/` there), so a `~` path can't work in batch. vsub refuses it.
+
+With that in place, interactive and batch runs share the same datasets. You can `vsub upload` input data, run in batch, and `vsub download` the results.
+
 ## 4. Verify
 
 ```bash
@@ -109,6 +129,8 @@ vsub batch submit examples/long_job.sas -f class.sas7bdat --wait
 | `The user token is expired. Login again ...` (sas-viya) | `sas-viya auth loginCode` |
 | `The current user is not authorized to perform this command` | The command is disabled by authorization rules; ask the Viya admin |
 | `ERROR: ... lockdown ...` when assigning `vsub` | The admin must add the path to the lockdown allowlist |
+| `ERROR: Libref VSUB is not assigned.` in a batch log | `home_mounted = false`: use `jobdir.` + `-f`, or enable the `vsub` library for batch (see above) |
+| `vsub batch submit --wait` exits 1/2 | The job's SAS log has warnings or errors; the log is in the results dir |
 | `'sas-viya' not found` | Put `~/.local/bin` on PATH or set `[batch] cli` |
 
 ## Updating the bundled CLI

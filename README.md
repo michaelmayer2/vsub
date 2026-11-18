@@ -113,7 +113,8 @@ run;
 * `vsub batch results` (like `sas-viya batch jobs get-results`) deletes the job
   and its file set on the server after downloading.
 * Large data: `--job-file` is meant for small files; use `vsub upload` + a
-  mounted home directory (`home_mounted = true`) for big inputs.
+  mounted home directory (`home_mounted = true` with an absolute `remote_root`;
+  batch pods have `HOME=/`) for big inputs. See docs/SETUP.md.
 
 ## Development
 

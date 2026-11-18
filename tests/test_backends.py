@@ -96,11 +96,28 @@ def test_saspy_cfg_has_no_secrets(cfg):
 # --- batch --------------------------------------------------------------------
 
 def test_preamble_home_mounted():
-    c = parse_config({"viya": {"url": "https://v"}, "batch": {"home_mounted": True}})
+    c = parse_config({"viya": {"url": "https://v"}, "storage": {"remote_root": "/home/u/vsub_data"},
+                      "batch": {"home_mounted": True}})
     p = batch.preamble(c)
     assert 'libname jobdir "%sysget(BATCHJOBDIR)";' in p
-    assert 'libname vsub "%sysget(HOME)/vsub_data";' in p
+    assert "libname vsub '/home/u/vsub_data';" in p
     assert "libname vsub" not in batch.preamble(parse_config({"viya": {"url": "https://v"}}))
+
+
+def test_preamble_home_mounted_rejects_tilde_root():
+    # batch pods have HOME=/ so "~" cannot be resolved there
+    c = parse_config({"viya": {"url": "https://v"}, "batch": {"home_mounted": True}})
+    with pytest.raises(batch.BatchError, match="absolute"):
+        batch.preamble(c)
+
+
+@pytest.mark.parametrize("code,expected", [
+    ("data vsub.out; set sashelp.class; run;", True),
+    ("proc print data=VSUB . class; run;", True),
+    ("data jobdir.out; x = 1; run; /* vsubtle */", False),
+])
+def test_uses_vsub_lib(code, expected):
+    assert batch.uses_vsub_lib(code) is expected
 
 
 def test_stage_job_files(tmp_path):
@@ -150,6 +167,14 @@ def test_submit_writes_preamble_and_uses_program_name(cfg, tmp_path):
     assert seen["name"] == "myjob.sas"
     assert seen["code"].startswith("/* --- vsub preamble") and seen["code"].endswith("data jobdir.out; x=1; run;")
     assert "--wait" not in seen["cmd"]
+
+
+def test_submit_wait_nonzero_job_rc_still_returns_id(cfg, tmp_path):
+    # `submit-pgm --wait` exits with the job's return code (2 = SAS errors)
+    prog = tmp_path / "p.sas"
+    prog.write_text("x")
+    out = '>>> The job was submitted. ID: "6819f2e7-286a-4f28-8be1-493b6e8c8379"  Workload Orchestrator job ID: "3071"\n<<< Job ended.'
+    assert batch.submit(cfg, prog, [], wait=True, runner=lambda cmd: (2, out)) == "6819f2e7-286a-4f28-8be1-493b6e8c8379"
 
 
 def test_submit_failure(cfg, tmp_path):

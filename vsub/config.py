@@ -15,7 +15,8 @@ Config lives in ``~/.config/vsub/config.toml`` (override with ``$VSUB_CONFIG``):
     cli          = "sas-viya"     # path to the sas-viya CLI
     profile      = ""             # sas-viya --profile, if not the default
     context      = "default"      # batch context
-    home_mounted = false          # true if HOME is persistent AND allowed in batch lockdown
+    home_mounted = false          # true if home dirs are mounted + lockdown-allowed in batch pods;
+                                  # then remote_root must be absolute (batch pods have HOME=/)
 """
 
 from __future__ import annotations
@@ -135,7 +136,8 @@ remote_root = "~/vsub_data"
 cli          = "sas-viya"
 profile      = ""
 context      = "default"
-# Set to true only if HOME is mounted in batch pods AND allowed by the batch
-# server's LOCKDOWN path list.
+# Set to true only if home directories are mounted in batch pods AND allowed by
+# the batch server's LOCKDOWN path list. Requires an ABSOLUTE remote_root above
+# (batch pods don't get your HOME) - use the path `vsub check-home` prints.
 home_mounted = false
 '''
