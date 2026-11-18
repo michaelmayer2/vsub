@@ -174,11 +174,17 @@ def _flatten(results_dir: Path) -> None:
 
 
 def fetch_results(cfg: Config, job_id: str, to_dir: Path, runner: Runner = _run_echo) -> BatchResults:
+    created = not to_dir.exists()
     to_dir.mkdir(parents=True, exist_ok=True)
     cmd = base_cmd(cfg) + ["batch", "jobs", "get-results", "--job-id", job_id, "--results-dir", str(to_dir)]
-    rc, _ = runner(cmd)
-    if rc != 0:
-        raise BatchError(f"sas-viya batch get-results failed (rc={rc}); is the job finished?")
+    try:
+        rc, _ = runner(cmd)
+        if rc != 0:
+            raise BatchError(f"sas-viya batch get-results failed (rc={rc}); is the job finished?")
+    except BatchError:
+        if created and not any(to_dir.iterdir()):
+            to_dir.rmdir()
+        raise
     _flatten(to_dir)
     files = sorted(p for p in to_dir.iterdir() if p.is_file())
     # SASBatch.*.log / redir.*.log are batch-server debug logs, not the SAS log
